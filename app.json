@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "sweepy-clone",
-    "slug": "sweepy-clone",
+    "name": "ChoreCraft",
+    "slug": "chorecraft",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "sweepyclone",
+    "scheme": "chorecraft",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
@@ -14,14 +14,17 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.swill85.chorecraft",
+      "buildNumber": "1.0.0"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.swill85.chorecraft"
     },
     "web": {
       "bundler": "metro",
@@ -29,10 +32,23 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-mail-composer",
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "firebase": {
+        "apiKey": "AIzaSyDuLYaI2Im9-bwFXysVjeB40c9bf6HW6dY",
+        "authDomain": "chorecraft-f9889.firebaseapp.com",
+        "projectId": "chorecraft-f9889",
+        "storageBucket": "chorecraft-f9889.firebasestorage.app",
+        "messagingSenderId": "843310217607",
+        "appId": "1:843310217607:web:0f49ee40b4ecd25fbdfb22",
+        "measurementId": "G-XJ6VZ767RF"
+      }
     }
   }
 }

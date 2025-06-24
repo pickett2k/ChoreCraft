@@ -1,31 +1,55 @@
-import { StyleSheet } from 'react-native';
-
-import EditScreenInfo from '@/components/EditScreenInfo';
-import { Text, View } from '@/components/Themed';
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { useAuth } from '../../src/contexts/AuthContext';
+import { ModernHomeScreen } from '../../src/screens/ModernHomeScreen';
+import { useRouter } from 'expo-router';
 
 export default function TabOneScreen() {
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Tab One</Text>
-      <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
-      <EditScreenInfo path="app/(tabs)/index.tsx" />
-    </View>
-  );
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  // Handle navigation based on auth state
+  useEffect(() => {
+    if (!loading && !user) {
+      // User not authenticated, redirect to login immediately
+      router.replace('/login');
+    }
+  }, [loading, user, router]);
+
+  // Show loading spinner while checking auth
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#6C63FF" />
+        <Text style={styles.loadingText}>Loading...</Text>
+      </View>
+    );
+  }
+
+  // If no user, show loading while redirecting (this should be very brief)
+  if (!user) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#6C63FF" />
+        <Text style={styles.loadingText}>Redirecting to login...</Text>
+      </View>
+    );
+  }
+
+  // User is authenticated - show home screen
+  return <ModernHomeScreen />;
 }
 
 const styles = StyleSheet.create({
-  container: {
+  loadingContainer: {
     flex: 1,
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
   },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  separator: {
-    marginVertical: 30,
-    height: 1,
-    width: '80%',
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#6B7280',
   },
 });

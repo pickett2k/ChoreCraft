@@ -1,0 +1,53 @@
+// Copy these rules to Firebase Console → Firestore Database → Rules
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users can only read/write their own user document
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Household access - members can read, admins can write
+    match /households/{householdId} {
+      allow read: if request.auth != null && 
+        request.auth.uid in resource.data.members;
+      allow write: if request.auth != null && 
+        request.auth.uid in resource.data.admins;
+    }
+    
+    // Chores - household members can read/write
+    match /chores/{choreId} {
+      allow read, write: if request.auth != null && 
+        isHouseholdMember(resource.data.householdId);
+    }
+    
+    // Chore completions - household members can read/write
+    match /choreCompletions/{completionId} {
+      allow read, write: if request.auth != null && 
+        isHouseholdMember(resource.data.householdId);
+    }
+    
+    // Rewards - household members can read, admins can write
+    match /rewards/{rewardId} {
+      allow read: if request.auth != null && 
+        isHouseholdMember(resource.data.householdId);
+      allow write: if request.auth != null && 
+        isHouseholdAdmin(resource.data.householdId);
+    }
+    
+    // Reward claims - household members can read/write
+    match /rewardClaims/{claimId} {
+      allow read, write: if request.auth != null && 
+        isHouseholdMember(resource.data.householdId);
+    }
+    
+    // Helper functions
+    function isHouseholdMember(householdId) {
+      return request.auth.uid in get(/databases/$(database)/documents/households/$(householdId)).data.members;
+    }
+    
+    function isHouseholdAdmin(householdId) {
+      return request.auth.uid in get(/databases/$(database)/documents/households/$(householdId)).data.admins;
+    }
+  }
+} 

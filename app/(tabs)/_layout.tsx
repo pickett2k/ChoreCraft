@@ -1,57 +1,102 @@
 import React from 'react';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Link, Tabs } from 'expo-router';
-import { Pressable } from 'react-native';
+import { Tabs } from 'expo-router';
+import { FontAwesome5, MaterialIcons } from '@expo/vector-icons';
+import { useAuth } from '../../src/contexts/AuthContext';
 
-import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
-import { useClientOnlyValue } from '@/components/useClientOnlyValue';
-
-// You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/
+// Modern TabBar Icon component
 function TabBarIcon(props: {
-  name: React.ComponentProps<typeof FontAwesome>['name'];
+  IconComponent: any;
+  name: string;
   color: string;
+  size?: number;
 }) {
-  return <FontAwesome size={28} style={{ marginBottom: -3 }} {...props} />;
+  const { IconComponent, name, color, size = 24 } = props;
+  return <IconComponent name={name} size={size} color={color} style={{ marginBottom: -3 }} />;
 }
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        // Disable the static render of the header on web
-        // to prevent a hydration error in React Navigation v6.
-        headerShown: useClientOnlyValue(false, true),
+        tabBarActiveTintColor: '#6C63FF',
+        tabBarInactiveTintColor: '#9CA3AF',
+        headerShown: false,
+        tabBarStyle: {
+          backgroundColor: '#FFFFFF',
+          borderTopWidth: 1,
+          borderTopColor: '#E5E7EB',
+          paddingBottom: 15,
+          paddingTop: 8,
+          height: 75,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 8,
+          elevation: 8,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '600',
+          marginTop: 4,
+          marginBottom: 4,
+        },
       }}>
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Tab One',
-          tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
-          headerRight: () => (
-            <Link href="/modal" asChild>
-              <Pressable>
-                {({ pressed }) => (
-                  <FontAwesome
-                    name="info-circle"
-                    size={25}
-                    color={Colors[colorScheme ?? 'light'].text}
-                    style={{ marginRight: 15, opacity: pressed ? 0.5 : 1 }}
-                  />
-                )}
-              </Pressable>
-            </Link>
+          title: 'Home',
+          tabBarIcon: ({ color }) => (
+            <TabBarIcon IconComponent={FontAwesome5} name="home" color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="two"
         options={{
-          title: 'Tab Two',
-          tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
+          title: 'Chores',
+          tabBarIcon: ({ color }) => (
+            <TabBarIcon IconComponent={MaterialIcons} name="assignment" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="calendar"
+        options={{
+          title: 'Calendar',
+          tabBarIcon: ({ color }) => (
+            <TabBarIcon IconComponent={FontAwesome5} name="calendar-alt" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="exchange"
+        options={{
+          title: 'Exchange',
+          tabBarIcon: ({ color }) => (
+            <TabBarIcon IconComponent={FontAwesome5} name="coins" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="approval"
+        options={{
+          title: 'Approval',
+          href: isAdmin ? '/approval' : null, // Hide tab for non-admins
+          tabBarIcon: ({ color }) => (
+            <TabBarIcon IconComponent={FontAwesome5} name="check-circle" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Settings',
+          tabBarIcon: ({ color }) => (
+            <TabBarIcon IconComponent={FontAwesome5} name="cog" color={color} />
+          ),
         }}
       />
     </Tabs>
