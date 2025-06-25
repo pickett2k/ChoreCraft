@@ -18,6 +18,9 @@ import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { choreService, choreSchedulingService, householdService, FirestoreUser, Chore } from '../services/firestoreService';
 import { useAuth } from '../contexts/AuthContext';
+import { premiumService } from '../services/premiumService';
+import { useRouter } from 'expo-router';
+import { getRoomCategories, getTaskCategories, getCategoryById } from '../utils/choreCategories';
 
 interface CreateChoreModalProps {
   visible: boolean;
@@ -33,9 +36,11 @@ export const CreateChoreModal: React.FC<CreateChoreModalProps> = ({
   editingChore
 }) => {
   const { user } = useAuth();
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [householdMembers, setHouseholdMembers] = useState<FirestoreUser[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
+  const [showPreSelectedChores, setShowPreSelectedChores] = useState(false);
   
   const [formData, setFormData] = useState({
     title: '',
@@ -53,6 +58,9 @@ export const CreateChoreModal: React.FC<CreateChoreModalProps> = ({
     },
     ageRestriction: 0,
     isAdultContent: false,
+    roomCategory: '',
+    taskCategory: '',
+    categoryBonusEligible: true,
   });
   
   const [beforePhoto, setBeforePhoto] = useState<string | null>(null);
@@ -75,6 +83,9 @@ export const CreateChoreModal: React.FC<CreateChoreModalProps> = ({
     { value: 'sunday', label: 'Sun', fullLabel: 'Sunday' },
   ];
 
+  // Check if user can create custom chores
+  const canCreateCustomChores = user?.firestoreData ? premiumService.canUserPerformAction(user.firestoreData, 'canCreateCustomChores') : false;
+
   const resetForm = () => {
     setFormData({
       title: '',
@@ -92,6 +103,9 @@ export const CreateChoreModal: React.FC<CreateChoreModalProps> = ({
       },
       ageRestriction: 0,
       isAdultContent: false,
+      roomCategory: '',
+      taskCategory: '',
+      categoryBonusEligible: true,
     });
     setBeforePhoto(null);
     setLoading(false);
@@ -184,9 +198,49 @@ export const CreateChoreModal: React.FC<CreateChoreModalProps> = ({
     onClose();
   };
 
+  // Handle selecting a pre-selected chore for free users
+  const handleSelectPreSelectedChore = async (choreTemplate: Partial<Chore>) => {
+    if (!user || !user.householdId) {
+      Alert.alert('Error', 'No household found. Please set up a household first.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const choreData = {
+        ...choreTemplate,
+        householdId: user.householdId,
+        createdBy: user.id,
+        assignedTo: formData.anyoneCanDo ? [] : [user.id],
+        anyoneCanDo: formData.anyoneCanDo,
+      };
+
+      await choreService.createChore(choreData);
+      
+      Alert.alert('Success', 'Chore created successfully!', [
+        { text: 'OK', onPress: () => {
+          setShowPreSelectedChores(false);
+          handleClose();
+          onChoreCreated();
+        }}
+      ]);
+    } catch (error) {
+      console.error('Error creating chore:', error);
+      Alert.alert('Error', 'Failed to create chore. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCreateChore = async () => {
     if (!user || !user.householdId) {
       Alert.alert('Error', 'No household found. Please set up a household first.');
+      return;
+    }
+
+    // Check premium limitations for custom chores
+    if (!canCreateCustomChores && !editingChore) {
+      Alert.alert('Error', 'You need to upgrade to Premium to create custom chores.');
       return;
     }
 
@@ -220,6 +274,9 @@ export const CreateChoreModal: React.FC<CreateChoreModalProps> = ({
         beforePhoto: beforePhoto || undefined,
         ageRestriction: formData.ageRestriction > 0 ? formData.ageRestriction : undefined,
         isAdultContent: formData.isAdultContent,
+        roomCategory: formData.roomCategory,
+        taskCategory: formData.taskCategory,
+        categoryBonusEligible: formData.categoryBonusEligible,
       };
 
       if (editingChore) {
@@ -286,6 +343,9 @@ export const CreateChoreModal: React.FC<CreateChoreModalProps> = ({
           },
           ageRestriction: editingChore.ageRestriction || 0,
           isAdultContent: editingChore.isAdultContent || false,
+          roomCategory: editingChore.roomCategory || '',
+          taskCategory: editingChore.taskCategory || '',
+          categoryBonusEligible: editingChore.categoryBonusEligible || true,
         });
         setBeforePhoto(editingChore.beforePhoto || null);
       } else {
@@ -295,6 +355,7 @@ export const CreateChoreModal: React.FC<CreateChoreModalProps> = ({
   }, [visible, editingChore]);
 
   return (
+    <>
     <Modal
       visible={visible}
       animationType="slide"
@@ -328,6 +389,73 @@ export const CreateChoreModal: React.FC<CreateChoreModalProps> = ({
         </View>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          {/* Show recommended chores for free users */}
+          {!canCreateCustomChores && !editingChore ? (
+            <View style={styles.section}>
+              <View style={styles.headerSection}>
+                <Text style={styles.sectionTitle}>🌟 Recommended Chores</Text>
+                <Text style={styles.sectionSubtitle}>
+                  Choose from our curated collection of popular household chores. 
+                  Upgrade to Premium to create custom chores.
+                </Text>
+              </View>
+              
+              <View style={styles.recommendedChoresGrid}>
+                {premiumService.getPreSelectedChores().map((chore, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.recommendedChoreCard}
+                    onPress={() => handleSelectPreSelectedChore(chore)}
+                    disabled={loading}
+                  >
+                    <View style={styles.choreCardHeader}>
+                      <Text style={styles.choreCardTitle}>{chore.title}</Text>
+                      <View style={styles.choreReward}>
+                        <FontAwesome5 name="coins" size={12} color="#FFD700" />
+                        <Text style={styles.choreRewardText}>{chore.coinReward}</Text>
+                      </View>
+                    </View>
+                    
+                    <Text style={styles.choreCardDescription}>{chore.description}</Text>
+                    
+                    <View style={styles.choreCardFooter}>
+                      <View style={styles.choreFrequency}>
+                        <FontAwesome5 name="calendar" size={12} color="#6B7280" />
+                        <Text style={styles.choreFrequencyText}>{chore.frequency}</Text>
+                      </View>
+                      
+                      {chore.roomCategory && (
+                        <View style={styles.choreCategory}>
+                          <Text style={styles.choreCategoryText}>
+                            {getRoomCategories().find(cat => cat.id === chore.roomCategory)?.icon} {getRoomCategories().find(cat => cat.id === chore.roomCategory)?.name}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              
+              <View style={styles.upgradePrompt}>
+                <View style={styles.upgradePromptContent}>
+                  <FontAwesome5 name="crown" size={24} color="#FFD700" style={{ marginBottom: 12 }} />
+                  <Text style={styles.upgradePromptTitle}>Want to create custom chores?</Text>
+                  <Text style={styles.upgradePromptText}>
+                    Upgrade to Premium for unlimited custom chores, advanced scheduling, and more!
+                  </Text>
+                  <TouchableOpacity 
+                    style={styles.upgradeButton}
+                    onPress={() => router.push('/premium-upgrade')}
+                  >
+                    <FontAwesome5 name="crown" size={16} color="white" style={{ marginRight: 8 }} />
+                    <Text style={styles.upgradeButtonText}>Upgrade to Premium</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          ) : (
+            /* Original custom chore form for premium users or editing */
+            <>
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Basic Information</Text>
             
@@ -354,6 +482,84 @@ export const CreateChoreModal: React.FC<CreateChoreModalProps> = ({
                   multiline
                   numberOfLines={3}
                   textAlignVertical="top"
+                />
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Categories</Text>
+            
+            <View style={styles.card}>
+              <View style={styles.categorySection}>
+                <Text style={styles.categoryTitle}>Room Category</Text>
+                <Text style={styles.categorySubtitle}>Choose which room this chore belongs to</Text>
+                <View style={styles.categoryGrid}>
+                  {getRoomCategories().map((category) => (
+                    <TouchableOpacity
+                      key={category.id}
+                      style={[
+                        styles.categoryCard,
+                        formData.roomCategory === category.id && [
+                          styles.categoryCardActive,
+                          { borderColor: category.color, backgroundColor: category.color + '15' }
+                        ]
+                      ]}
+                      onPress={() => setFormData(prev => ({ ...prev, roomCategory: category.id }))}
+                    >
+                      <Text style={styles.categoryIcon}>{category.icon}</Text>
+                      <Text style={[
+                        styles.categoryName,
+                        formData.roomCategory === category.id && { color: category.color }
+                      ]}>
+                        {category.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <View style={[styles.categorySection, { marginTop: 20 }]}>
+                <Text style={styles.categoryTitle}>Task Category</Text>
+                <Text style={styles.categorySubtitle}>Choose what type of task this is</Text>
+                <View style={styles.categoryGrid}>
+                  {getTaskCategories().map((category) => (
+                    <TouchableOpacity
+                      key={category.id}
+                      style={[
+                        styles.categoryCard,
+                        formData.taskCategory === category.id && [
+                          styles.categoryCardActive,
+                          { borderColor: category.color, backgroundColor: category.color + '15' }
+                        ]
+                      ]}
+                      onPress={() => setFormData(prev => ({ ...prev, taskCategory: category.id }))}
+                    >
+                      <Text style={styles.categoryIcon}>{category.icon}</Text>
+                      <Text style={[
+                        styles.categoryName,
+                        formData.taskCategory === category.id && { color: category.color }
+                      ]}>
+                        {category.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <View style={[styles.settingRow, { marginTop: 20, borderBottomWidth: 0 }]}>
+                <View style={styles.settingInfo}>
+                  <FontAwesome5 name="trophy" size={18} color="#FFD700" />
+                  <View style={styles.settingTextContainer}>
+                    <Text style={styles.settingTitle}>Bonus Eligible</Text>
+                    <Text style={styles.settingSubtitle}>Counts toward category completion bonus</Text>
+                  </View>
+                </View>
+                <Switch
+                  value={formData.categoryBonusEligible}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, categoryBonusEligible: value }))}
+                  trackColor={{ false: '#E5E7EB', true: '#FFD700' }}
+                  thumbColor={formData.categoryBonusEligible ? '#FFFFFF' : '#9CA3AF'}
                 />
               </View>
             </View>
@@ -632,9 +838,12 @@ export const CreateChoreModal: React.FC<CreateChoreModalProps> = ({
               Completed chores automatically delete after 7 days to save storage space.
             </Text>
           </View>
+          </>
+          )}
         </ScrollView>
       </KeyboardAwareScrollView>
     </Modal>
+    </>
   );
 };
 
@@ -1048,5 +1257,166 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#1F2937',
     marginBottom: 12,
+  },
+  categorySection: {
+    marginBottom: 20,
+  },
+  categoryTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  categorySubtitle: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginBottom: 12,
+  },
+  categoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  categoryCard: {
+    padding: 12,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  categoryCardActive: {
+    borderColor: '#6C63FF',
+  },
+  categoryIcon: {
+    fontSize: 20,
+    marginBottom: 4,
+  },
+  categoryName: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  headerSection: {
+    marginBottom: 20,
+  },
+  sectionSubtitle: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginBottom: 12,
+  },
+  recommendedChoresGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  recommendedChoreCard: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  choreCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  choreCardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    flex: 1,
+  },
+  choreReward: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  choreRewardText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFD700',
+  },
+  choreCardDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  choreCardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  choreFrequency: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  choreFrequencyText: {
+    fontSize: 12,
+    color: '#6B7280',
+    textTransform: 'capitalize',
+  },
+  choreCategory: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  choreCategoryText: {
+    fontSize: 11,
+    color: '#6B7280',
+  },
+  upgradePrompt: {
+    backgroundColor: 'white',
+    marginTop: 20,
+    padding: 20,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  upgradePromptContent: {
+    alignItems: 'center',
+  },
+  upgradePromptTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1A1A1A',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  upgradePromptText: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 16,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  upgradeButton: {
+    backgroundColor: '#6C63FF',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#6C63FF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  upgradeButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
 }); 

@@ -10,13 +10,32 @@ export interface EmailInvitation {
   customMessage?: string;
 }
 
+/**
+ * RESEND EMAIL SERVICE
+ * Professional email service for transactional emails
+ * Handles invitations, welcome emails, and notifications
+ */
+
 class ResendEmailService {
   private resend: Resend;
-  private fromEmail = 'ChoreCraft <noreply@formcraft.co.uk>'; // Using your domain
+  private fromEmail: string;
+  private isConfigured: boolean;
   
   constructor() {
-    // Initialize Resend with your API key
-    this.resend = new Resend('re_i3uaTod9_4kAGD9emHeAtsooiNFExeDCc');
+    // Get API key from environment variables
+    const apiKey = process.env.RESEND_API_KEY;
+    this.fromEmail = process.env.RESEND_FROM_EMAIL || 'ChoreCraft <noreply@formcraft.co.uk>';
+    
+    if (!apiKey || apiKey === 're_YOUR_RESEND_API_KEY_HERE') {
+      console.warn('⚠️ Resend API key not configured. Email functionality will be disabled.');
+      this.isConfigured = false;
+      // Create a dummy Resend instance to prevent errors
+      this.resend = new Resend('dummy_key');
+    } else {
+      this.resend = new Resend(apiKey);
+      this.isConfigured = true;
+      console.log('✅ Resend email service configured');
+    }
   }
 
   private generateInvitationHTML(invitation: EmailInvitation): string {

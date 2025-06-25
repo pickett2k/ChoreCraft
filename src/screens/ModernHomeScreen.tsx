@@ -31,6 +31,16 @@ import {
   ActivityItem,
   MissedChore
 } from '../services/firestoreService';
+import { 
+  getRoomCategories, 
+  getTaskCategories, 
+  getCategoryById, 
+  getCategoryColor, 
+  getCategoryIcon,
+  getCategoryName,
+  checkCategoryCompletion 
+} from '../utils/choreCategories';
+import PremiumBanner from '../components/PremiumBanner';
 
 const { width } = Dimensions.get('window');
 
@@ -270,12 +280,81 @@ export const ModernHomeScreen: React.FC = () => {
   };
 
   const formatMissedDate = (date: Date): string => {
-    const today = new Date();
-    const diffInDays = Math.floor((today.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - date.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+  };
+
+  // Category-based helper functions
+  const getCategoryChores = (categoryId: string, categoryType: 'room' | 'task') => {
+    return todaysChores.filter(chore => {
+      if (categoryType === 'room') {
+        return chore.roomCategory === categoryId && chore.categoryBonusEligible;
+      } else {
+        return chore.taskCategory === categoryId && chore.categoryBonusEligible;
+      }
+    });
+  };
+
+  const getCategoryCompletionStatus = (categoryId: string, categoryType: 'room' | 'task') => {
+    return checkCategoryCompletion(todaysChores, categoryId, categoryType);
+  };
+
+  const getAvailableCategoryBonuses = () => {
+    const roomBonuses = getRoomCategories().map(category => {
+      const status = getCategoryCompletionStatus(category.id, 'room');
+      return {
+        category,
+        status,
+        type: 'room' as const
+      };
+    }).filter(bonus => bonus.status.totalChores > 0);
+
+    const taskBonuses = getTaskCategories().map(category => {
+      const status = getCategoryCompletionStatus(category.id, 'task');
+      return {
+        category,
+        status,
+        type: 'task' as const
+      };
+    }).filter(bonus => bonus.status.totalChores > 0);
+
+    return [...roomBonuses, ...taskBonuses];
+  };
+
+  const groupChoresByCategory = () => {
+    const grouped: { [key: string]: { chores: Chore[], category: any, type: 'room' | 'task' } } = {};
     
-    if (diffInDays === 0) return 'Today';
-    if (diffInDays === 1) return 'Yesterday';
-    return `${diffInDays} days ago`;
+    todaysChores.forEach(chore => {
+      // Group by room category
+      if (chore.roomCategory) {
+        const key = `room_${chore.roomCategory}`;
+        if (!grouped[key]) {
+          grouped[key] = {
+            chores: [],
+            category: getCategoryById(chore.roomCategory),
+            type: 'room'
+          };
+        }
+        grouped[key].chores.push(chore);
+      }
+      
+      // Group by task category
+      if (chore.taskCategory) {
+        const key = `task_${chore.taskCategory}`;
+        if (!grouped[key]) {
+          grouped[key] = {
+            chores: [],
+            category: getCategoryById(chore.taskCategory),
+            type: 'task'
+          };
+        }
+        grouped[key].chores.push(chore);
+      }
+    });
+
+    return grouped;
   };
 
   if (loading) {
@@ -331,6 +410,9 @@ export const ModernHomeScreen: React.FC = () => {
           />
         ) : (
           <>
+            {/* Premium Banner */}
+            <PremiumBanner />
+            
             {/* Stats Cards */}
             <View style={styles.statsContainer}>
               <View style={[styles.statCard, styles.coinsCard]}>
@@ -381,7 +463,7 @@ export const ModernHomeScreen: React.FC = () => {
               <View style={styles.actionGrid}>
                 <TouchableOpacity 
                   style={[styles.actionCard, styles.primaryAction]}
-                  onPress={() => router.push('/(tabs)/two')}
+                  onPress={() => router.push('/(tabs)/calendar')}
                 >
                   <View style={styles.actionIcon}>
                     <MaterialIcons name="assignment" size={28} color="white" />
@@ -442,15 +524,76 @@ export const ModernHomeScreen: React.FC = () => {
               </View>
             </View>
 
-            {/* Today's Chores */}
+            {/* Today's Chores - Category Based */}
             {household && todaysChores.length > 0 && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Today's Chores</Text>
+                
+                {/* Category Completion Bonuses */}
+                {getAvailableCategoryBonuses().length > 0 && (
+                  <View style={styles.categoryBonusContainer}>
+                    <Text style={styles.categoryBonusTitle}>🏆 Category Bonuses Available</Text>
+                    <View style={styles.categoryBonusGrid}>
+                      {getAvailableCategoryBonuses().map((bonus) => (
+                        <View 
+                          key={`${bonus.type}_${bonus.category.id}`}
+                          style={[
+                            styles.categoryBonusCard,
+                            bonus.status.isComplete && styles.categoryBonusCardComplete,
+                            { borderColor: bonus.category.color }
+                          ]}
+                        >
+                          <Text style={styles.categoryBonusIcon}>{bonus.category.icon}</Text>
+                          <Text style={styles.categoryBonusName}>{bonus.category.name}</Text>
+                          <View style={styles.categoryBonusProgress}>
+                            <Text style={[
+                              styles.categoryBonusProgressText,
+                              bonus.status.isComplete && styles.categoryBonusProgressComplete
+                            ]}>
+                              {bonus.status.completedChores}/{bonus.status.totalChores}
+                            </Text>
+                            {bonus.status.isComplete && (
+                              <View style={[styles.categoryBonusCoinBadge, { backgroundColor: bonus.category.color }]}>
+                                <FontAwesome5 name="coins" size={12} color="white" />
+                                <Text style={styles.categoryBonusCoinText}>+{bonus.category.bonusCoins}</Text>
+                              </View>
+                            )}
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+
+                {/* Show chores with category tags */}
                 {todaysChores.map((chore) => (
                   <View key={chore.id} style={styles.choreCard}>
                     <View style={styles.choreInfo}>
-                      <Text style={styles.choreTitle}>{chore.title}</Text>
+                      <View style={styles.choreHeader}>
+                        <Text style={styles.choreTitle}>{chore.title}</Text>
+                        {chore.categoryBonusEligible && (
+                          <View style={styles.bonusEligibleBadge}>
+                            <FontAwesome5 name="trophy" size={10} color="#FFD700" />
+                          </View>
+                        )}
+                      </View>
                       <Text style={styles.choreDescription}>{chore.description}</Text>
+                      <View style={styles.choreCategoryTags}>
+                        {chore.roomCategory && (
+                          <View style={[styles.categoryTag, { backgroundColor: getCategoryColor(chore.roomCategory) + '20' }]}>
+                            <Text style={[styles.categoryTagText, { color: getCategoryColor(chore.roomCategory) }]}>
+                              {getCategoryIcon(chore.roomCategory)} {getCategoryName(chore.roomCategory)}
+                            </Text>
+                          </View>
+                        )}
+                        {chore.taskCategory && (
+                          <View style={[styles.categoryTag, { backgroundColor: getCategoryColor(chore.taskCategory) + '20' }]}>
+                            <Text style={[styles.categoryTagText, { color: getCategoryColor(chore.taskCategory) }]}>
+                              {getCategoryIcon(chore.taskCategory)} {getCategoryName(chore.taskCategory)}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
                     </View>
                     <View style={styles.choreReward}>
                       <FontAwesome5 name="coins" size={16} color="#FFD700" />
@@ -1058,5 +1201,124 @@ const styles = StyleSheet.create({
     color: '#6366F1',
     fontWeight: '500',
     marginRight: 8,
+  },
+  // New styles for category-based view
+  categoryBonusContainer: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+  },
+  categoryBonusTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1A1A1A',
+    marginBottom: 12,
+  },
+  categoryBonusGrid: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  categoryBonusCard: {
+    flex: 1,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    padding: 12,
+  },
+  categoryBonusCardComplete: {
+    borderColor: '#4CAF50',
+  },
+  categoryBonusIcon: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1A1A1A',
+    marginBottom: 8,
+  },
+  categoryBonusName: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  categoryBonusProgress: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  categoryBonusProgressText: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  categoryBonusProgressComplete: {
+    color: '#4CAF50',
+  },
+  categoryBonusCoinBadge: {
+    backgroundColor: '#4CAF50',
+    padding: 4,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  categoryBonusCoinText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'white',
+  },
+  categoryGroup: {
+    marginBottom: 20,
+  },
+  categoryGroupHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  categoryGroupTitle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  categoryGroupIcon: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1A1A1A',
+    marginRight: 8,
+  },
+  categoryGroupName: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  categoryGroupBadge: {
+    backgroundColor: '#E5E7EB',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  categoryGroupBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  bonusEligibleBadge: {
+    backgroundColor: '#E8F5E8',
+    padding: 4,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  choreHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  choreCategoryTags: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  categoryTag: {
+    padding: 4,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+  },
+  categoryTagText: {
+    fontSize: 12,
+    color: '#6B7280',
   },
 }); 

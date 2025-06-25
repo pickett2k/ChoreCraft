@@ -54,15 +54,6 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="two"
-        options={{
-          title: 'Chores',
-          tabBarIcon: ({ color }) => (
-            <TabBarIcon IconComponent={MaterialIcons} name="assignment" color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="calendar"
         options={{
           title: 'Calendar',

@@ -49,6 +49,27 @@ export interface FirestoreUser {
   lastActive: Timestamp;
   dateOfBirth?: Timestamp; // For age verification and content filtering
   age?: number; // Calculated age for easy filtering
+  
+  // Premium subscription fields
+  isPremium: boolean;
+  subscription?: {
+    status: 'active' | 'expired' | 'cancelled' | 'pending';
+    planId: string; // 'premium_yearly'
+    startDate: Timestamp;
+    endDate: Timestamp;
+    autoRenew: boolean;
+    platform: 'ios' | 'android' | 'stripe';
+    transactionId?: string; // Store receipt/transaction ID
+    originalTransactionId?: string; // For iOS restoration
+    purchaseToken?: string; // For Android
+    priceAmount: number; // Amount paid (e.g., 20.00)
+    priceCurrency: string; // Currency code (e.g., 'GBP')
+    lastPaymentDate?: Timestamp;
+    nextBillingDate?: Timestamp;
+    cancelledAt?: Timestamp;
+    cancelReason?: string;
+  };
+  
   preferences: {
     darkMode: boolean;
     notifications: {
@@ -114,6 +135,15 @@ export interface Household {
   };
 }
 
+export interface ChoreCategory {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+  type: 'room' | 'task';
+  bonusCoins: number; // Bonus coins for completing all chores in this category
+}
+
 export interface Chore {
   id: string;
   householdId: string;
@@ -146,6 +176,11 @@ export interface Chore {
   // Age restriction for adult content chores
   ageRestriction?: number;
   isAdultContent?: boolean;
+  
+  // Category fields
+  roomCategory?: string; // e.g., 'kitchen', 'bedroom'
+  taskCategory?: string; // e.g., 'cleaning', 'maintenance'
+  categoryBonusEligible?: boolean; // Whether this chore counts toward category completion bonus
 }
 
 export interface ChoreCompletion {
@@ -317,6 +352,7 @@ export const userService = {
         coins: 0,
         totalCoinsEarned: 0,
         totalCashRewards: 0,
+        isPremium: false, // Default to free tier
         joinedAt: serverTimestamp() as Timestamp,
         lastActive: serverTimestamp() as Timestamp,
         preferences: {
@@ -506,6 +542,83 @@ export const userService = {
     } catch (error) {
       console.error('❌ Error resetting user statistics:', error);
       throw error;
+    }
+  },
+
+  // Premium subscription management
+  async updateSubscription(userId: string, subscriptionData: FirestoreUser['subscription']): Promise<void> {
+    try {
+      console.log('💎 Updating subscription for user:', userId);
+      
+      if (!db) {
+        console.log('📱 Mock mode: Updating subscription');
+        return;
+      }
+
+      const userRef = doc(db, 'users', userId);
+      await updateDoc(userRef, {
+        subscription: subscriptionData,
+        isPremium: subscriptionData?.status === 'active',
+        updatedAt: new Date(),
+      });
+
+      console.log('✅ Subscription updated successfully');
+    } catch (error) {
+      console.error('❌ Error updating subscription:', error);
+      throw error;
+    }
+  },
+
+  // Cancel subscription
+  async cancelSubscription(userId: string, reason?: string): Promise<void> {
+    try {
+      console.log('❌ Cancelling subscription for user:', userId);
+      
+      if (!db) {
+        console.log('📱 Mock mode: Cancelling subscription');
+        return;
+      }
+
+      const userRef = doc(db, 'users', userId);
+      await updateDoc(userRef, {
+        'subscription.status': 'cancelled',
+        'subscription.cancelledAt': new Date(),
+        'subscription.cancelReason': reason || 'User cancelled',
+        'subscription.autoRenew': false,
+        isPremium: false,
+        updatedAt: new Date(),
+      });
+
+      console.log('✅ Subscription cancelled successfully');
+    } catch (error) {
+      console.error('❌ Error cancelling subscription:', error);
+      throw error;
+    }
+  },
+
+  // Check if subscription is expired and update status
+  async checkSubscriptionExpiry(userId: string): Promise<boolean> {
+    try {
+      const user = await this.getUser(userId);
+      if (!user?.subscription || !db) return false;
+
+      const now = new Date();
+      const endDate = timestampToDate(user.subscription.endDate);
+
+      if (now > endDate && user.subscription.status === 'active') {
+        await updateDoc(doc(db, 'users', userId), {
+          'subscription.status': 'expired',
+          isPremium: false,
+          updatedAt: new Date(),
+        });
+        console.log('⏰ Subscription expired for user:', userId);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('❌ Error checking subscription expiry:', error);
+      return false;
     }
   },
 };
@@ -3546,6 +3659,7 @@ export const missedChoresService = {
       coins: 50,
       totalCoinsEarned: 100,
       totalCashRewards: 5.0,
+      isPremium: false, // Add missing isPremium field
       joinedAt: new Date() as any,
       lastActive: new Date() as any,
       preferences: {

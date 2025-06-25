@@ -12,6 +12,7 @@ import { auth, db } from '../services/firebase';
 import { firestoreUtils, userService, FirestoreUser } from '../services/firestoreService';
 import { AsyncStorageService } from '../storage/AsyncStorageService';
 import { User } from '../types';
+import { subscriptionService } from '../services/subscriptionService';
 
 // Enhanced User interface that includes both auth and Firestore data
 interface AuthUser extends User {
@@ -101,6 +102,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const updatedUser = updateUserWithFirestoreData(user, userData);
         setUser(updatedUser);
         console.log('✅ User data refreshed:', { householdId: updatedUser.householdId });
+        
+        // Initialize subscription service for real subscriptions
+        try {
+          await subscriptionService.initialize(updatedUser.id);
+          console.log('✅ Subscription service initialized');
+        } catch (error) {
+          console.log('⚠️ Subscription service initialization failed:', error);
+        }
       }
     } catch (error) {
       console.error('❌ Error refreshing user data:', error);
@@ -168,6 +177,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const updatedUser = updateUserWithFirestoreData(mockUser, userData);
             setUser(updatedUser);
             console.log('✅ User data loaded from Firestore:', { householdId: updatedUser.householdId });
+            
+            // Initialize subscription service for real subscriptions
+            try {
+              await subscriptionService.initialize(updatedUser.id);
+              console.log('✅ Subscription service initialized');
+            } catch (error) {
+              console.log('⚠️ Subscription service initialization failed:', error);
+            }
           } else {
             setUser(mockUser);
           }
@@ -192,6 +209,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const updatedUser = updateUserWithFirestoreData(mockUser, userData);
           setUser(updatedUser);
           console.log('✅ User data loaded from Firestore during fallback:', { householdId: updatedUser.householdId });
+          
+          // Initialize subscription service for real subscriptions
+          try {
+            await subscriptionService.initialize(updatedUser.id);
+            console.log('✅ Subscription service initialized');
+          } catch (error) {
+            console.log('⚠️ Subscription service initialization failed:', error);
+          }
         } else {
           setUser(mockUser);
         }
@@ -242,6 +267,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     try {
       console.log('👋 Attempting logout...', { hasAuth: !!auth });
+      
+      // Logout from subscription service first
+      try {
+        await subscriptionService.logout();
+        console.log('✅ Subscription service logout successful');
+      } catch (error) {
+        console.log('⚠️ Subscription service logout failed:', error);
+      }
+      
       if (auth) {
         await signOut(auth);
         console.log('✅ Firebase logout successful');
@@ -284,6 +318,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const userData = await userService.getUser(firebaseUser.uid);
             const user = createUserFromFirebase(firebaseUser, userData || undefined);
             setUser(user);
+            
+            // Initialize subscription service for real subscriptions
+            try {
+              await subscriptionService.initialize(firebaseUser.uid);
+              console.log('✅ Subscription service initialized for Firebase user');
+            } catch (error) {
+              console.log('⚠️ Subscription service initialization failed:', error);
+            }
             
             // Set up real-time listener for user data changes
             firestoreUnsubscribe = setupUserDataListener(firebaseUser.uid);

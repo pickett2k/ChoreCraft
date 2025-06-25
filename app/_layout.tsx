@@ -64,6 +64,7 @@ function RootLayoutNav() {
             <Stack.Screen name="approval" options={{ headerShown: false }} />
             <Stack.Screen name="manage-rewards" options={{ headerShown: false }} />
             <Stack.Screen name="notification-settings" options={{ headerShown: false }} />
+            <Stack.Screen name="premium-upgrade" options={{ headerShown: false }} />
           </Stack>
         </ThemeProvider>
       </AuthProvider>

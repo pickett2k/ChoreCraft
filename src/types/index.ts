@@ -39,6 +39,14 @@ export interface CustomFrequency {
   time: string; // '09:00'
 }
 
+export interface ChoreCategory {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+  type: 'room' | 'task';
+}
+
 export interface Chore {
   id: string;
   householdId: string;
@@ -63,6 +71,11 @@ export interface Chore {
   deleteAt?: Date; // Set when completed, for auto-cleanup
   createdAt: Date;
   updatedAt: Date;
+  
+  // Category fields
+  roomCategory?: string; // e.g., 'kitchen', 'bedroom'
+  taskCategory?: string; // e.g., 'cleaning', 'maintenance'
+  categoryBonusEligible?: boolean; // Whether this chore counts toward category completion bonus
 }
 
 export interface Reward {

@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "843310217607",
+    "project_id": "chorecraft-f9889",
+    "storage_bucket": "chorecraft-f9889.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:843310217607:android:b571e502fa568005bdfb22",
+        "android_client_info": {
+          "package_name": "com.swill85.chorecraft"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "843310217607-example.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDuLYaI2Im9-bwFXysVjeB40c9bf6HW6dY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "843310217607-example.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

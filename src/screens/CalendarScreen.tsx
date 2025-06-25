@@ -20,6 +20,11 @@ import {
   Chore, 
   Household 
 } from '../services/firestoreService';
+import { 
+  getCategoryColor, 
+  getCategoryIcon,
+  getCategoryName 
+} from '../utils/choreCategories';
 
 interface CalendarScreenProps {
   navigation: any;
@@ -396,6 +401,31 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({ navigation }) =>
                     <Text style={styles.choreDescription} numberOfLines={2}>
                       {chore.description}
                     </Text>
+                    
+                    {/* Category tags */}
+                    {(chore.roomCategory || chore.taskCategory) && (
+                      <View style={styles.choreCategoryTags}>
+                        {chore.roomCategory && (
+                          <View style={[styles.categoryTag, { backgroundColor: getCategoryColor(chore.roomCategory) + '20' }]}>
+                            <Text style={[styles.categoryTagText, { color: getCategoryColor(chore.roomCategory) }]}>
+                              {getCategoryIcon(chore.roomCategory)} {getCategoryName(chore.roomCategory)}
+                            </Text>
+                          </View>
+                        )}
+                        {chore.taskCategory && (
+                          <View style={[styles.categoryTag, { backgroundColor: getCategoryColor(chore.taskCategory) + '20' }]}>
+                            <Text style={[styles.categoryTagText, { color: getCategoryColor(chore.taskCategory) }]}>
+                              {getCategoryIcon(chore.taskCategory)} {getCategoryName(chore.taskCategory)}
+                            </Text>
+                          </View>
+                        )}
+                        {chore.categoryBonusEligible && (
+                          <View style={styles.bonusEligibleTag}>
+                            <FontAwesome5 name="trophy" size={10} color="#FFD700" />
+                          </View>
+                        )}
+                      </View>
+                    )}
                     <View style={styles.choreFooter}>
                       <Text style={styles.choreFrequency}>{chore.frequency}</Text>
                       <Text style={styles.overdueText}>OVERDUE</Text>
@@ -455,6 +485,31 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({ navigation }) =>
                     ]} numberOfLines={2}>
                       {chore.description}
                     </Text>
+                    
+                    {/* Category tags */}
+                    {(chore.roomCategory || chore.taskCategory) && (
+                      <View style={styles.choreCategoryTags}>
+                        {chore.roomCategory && (
+                          <View style={[styles.categoryTag, { backgroundColor: getCategoryColor(chore.roomCategory) + '20' }]}>
+                            <Text style={[styles.categoryTagText, { color: getCategoryColor(chore.roomCategory) }]}>
+                              {getCategoryIcon(chore.roomCategory)} {getCategoryName(chore.roomCategory)}
+                            </Text>
+                          </View>
+                        )}
+                        {chore.taskCategory && (
+                          <View style={[styles.categoryTag, { backgroundColor: getCategoryColor(chore.taskCategory) + '20' }]}>
+                            <Text style={[styles.categoryTagText, { color: getCategoryColor(chore.taskCategory) }]}>
+                              {getCategoryIcon(chore.taskCategory)} {getCategoryName(chore.taskCategory)}
+                            </Text>
+                          </View>
+                        )}
+                        {chore.categoryBonusEligible && (
+                          <View style={styles.bonusEligibleTag}>
+                            <FontAwesome5 name="trophy" size={10} color="#FFD700" />
+                          </View>
+                        )}
+                      </View>
+                    )}
                     <View style={styles.choreFooter}>
                       <Text style={[
                         styles.choreFrequency,
@@ -811,5 +866,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#F59E0B',
     fontWeight: 'bold',
+  },
+  choreCategoryTags: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  categoryTag: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    padding: 4,
+    marginRight: 4,
+  },
+  categoryTagText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  bonusEligibleTag: {
+    backgroundColor: '#FFD700',
+    borderRadius: 12,
+    padding: 4,
+    marginLeft: 4,
   },
 });

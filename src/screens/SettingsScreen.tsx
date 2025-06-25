@@ -35,6 +35,7 @@ import InvitationManagementModal from '../components/InvitationManagementModal';
 import PendingMemberApprovalModal from '../components/PendingMemberApprovalModal';
 import { CreateChoreModal } from '../components/CreateChoreModal';
 import { notificationService } from '../services/notificationService';
+import { getSettingsUpgradeText } from '../utils/pricing';
 
 const { width } = Dimensions.get('window');
 
@@ -249,7 +250,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
         Alert.alert('Info', 'No changes to save');
       }
       
-    setIsEditingProfile(false);
+      setIsEditingProfile(false);
     } catch (error) {
       console.error('Error updating profile:', error);
       Alert.alert('Error', 'Failed to update profile. Please try again.');
@@ -778,6 +779,68 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
             );
           }}
         />
+        
+        {/* Statistics Reset Option */}
+        {((user?.firestoreData?.stats?.choresCompleted || 0) > 0 || 
+          (user?.firestoreData?.stats?.rewardsClaimed || 0) > 0 || 
+          (user?.firestoreData?.stats?.currentStreak || 0) > 0 || 
+          (user?.firestoreData?.stats?.longestStreak || 0) > 0) && (
+          <SettingRow
+            icon="redo"
+            title="Reset Statistics"
+            subtitle="Reset all statistics to zero"
+            onPress={() => {
+              const stats = user?.firestoreData?.stats;
+              Alert.alert(
+                'Reset All Statistics',
+                `⚠️ WARNING: This action cannot be undone!\n\nThis will permanently reset the following statistics to zero:\n\n📊 Current Statistics:\n• Chores completed: ${stats?.choresCompleted || 0}\n• Rewards claimed: ${stats?.rewardsClaimed || 0}\n• Current streak: ${stats?.currentStreak || 0} days\n• Best streak: ${stats?.longestStreak || 0} days\n\nAre you absolutely sure you want to proceed?`,
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { 
+                    text: 'Yes, Reset Everything', 
+                    style: 'destructive', 
+                    onPress: () => {
+                      // Double confirmation for destructive action
+                      Alert.alert(
+                        'Final Confirmation',
+                        'This is your last chance to cancel.\n\nAll your statistics will be permanently lost and cannot be recovered.\n\nAre you absolutely certain?',
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          { 
+                            text: 'Yes, Reset Everything', 
+                            style: 'destructive', 
+                            onPress: async () => {
+                              if (!user) return;
+                              try {
+                                setLoading(true);
+                                await userService.resetUserStatistics(user.id);
+                                Alert.alert(
+                                  'Statistics Reset',
+                                  '✅ All statistics have been reset to zero.\n\nYour journey starts fresh from here!'
+                                );
+                                // Refresh user data
+                                await loadData();
+                              } catch (error) {
+                                console.error('Error resetting statistics:', error);
+                                Alert.alert(
+                                  'Error', 
+                                  'Failed to reset statistics. Please try again.'
+                                );
+                              } finally {
+                                setLoading(false);
+                              }
+                            }
+                          },
+                        ]
+                      );
+                    }
+                  },
+                ]
+              );
+            }}
+            iconColor="#EF4444"
+          />
+        )}
                   </View>
 
       <View style={styles.card}>
@@ -977,18 +1040,69 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
               />
               
               {isAdmin && (
-                <SettingRow
-                  icon="chart-bar"
-                  title="Household Analytics"
-                  subtitle="View household performance and insights"
-                  onPress={() => {
-                    if (!household) return;
-                    Alert.alert(
-                      'Household Analytics',
-                      `📊 ${household.name} Statistics:\n\n• ${household.stats?.activeMemberCount || 0} active members\n• ${household.stats?.totalChoresCompleted || 0} total chores completed\n• ${household.stats?.totalCoinsAwarded || 0} total coins awarded\n\n💰 Settings:\n• Currency: ${household.settings?.currency?.symbol}${household.settings?.currency?.code}\n• Auto-approve: ${household.settings?.autoApprove ? 'Yes' : 'No'}\n• Photo proof required: ${household.settings?.requirePhotoProof ? 'Yes' : 'No'}\n• Coin deduction: ${household.settings?.coinDeduction?.enabled ? 'Yes' : 'No'}\n\nKeep your household motivated! 🏠✨`
-                    );
-                  }}
-                />
+                <>
+                  {/* Premium Management Section */}
+                  <View style={styles.premiumSection}>
+                    <Text style={styles.premiumSectionTitle}>Premium Subscription</Text>
+                    
+                    {user?.firestoreData?.isPremium ? (
+                      <>
+                        <SettingRow
+                          icon="crown"
+                          title="Premium Active"
+                          subtitle={`Expires: ${user?.firestoreData?.subscription?.endDate ? (typeof user.firestoreData.subscription.endDate === 'string' ? new Date(user.firestoreData.subscription.endDate).toLocaleDateString() : user.firestoreData.subscription.endDate.toDate().toLocaleDateString()) : 'Unknown'}`}
+                          iconColor="#FFD700"
+                        />
+                        
+                        <SettingRow
+                          icon="credit-card"
+                          title="Manage Subscription"
+                          subtitle="Update payment method or cancel subscription"
+                          onPress={() => {
+                            Alert.alert(
+                              'Manage Subscription',
+                              'Subscription management options:\n\n• Update payment method\n• Cancel subscription\n• View billing history',
+                              [
+                                { text: 'Cancel', style: 'cancel' },
+                                { 
+                                  text: 'Manage',
+                                  onPress: () => {
+                                    // TODO: Implement subscription management
+                                    Alert.alert('Coming Soon', 'Subscription management will be available soon!');
+                                  }
+                                }
+                              ]
+                            );
+                          }}
+                          iconColor="#6C63FF"
+                        />
+                      </>
+                    ) : (
+                      <SettingRow
+                        icon="star"
+                        title="Upgrade to Premium"
+                        subtitle={getSettingsUpgradeText()}
+                        onPress={() => {
+                          router.push('/premium-upgrade');
+                        }}
+                        iconColor="#FFD700"
+                      />
+                    )}
+                  </View>
+                  
+                  <SettingRow
+                    icon="chart-bar"
+                    title="Household Analytics"
+                    subtitle="View household performance and insights"
+                    onPress={() => {
+                      if (!household) return;
+                      Alert.alert(
+                        'Household Analytics',
+                        `📊 ${household.name} Statistics:\n\n• ${household.stats?.activeMemberCount || 0} active members\n• ${household.stats?.totalChoresCompleted || 0} total chores completed\n• ${household.stats?.totalCoinsAwarded || 0} total coins awarded\n\n💰 Settings:\n• Currency: ${household.settings?.currency?.symbol}${household.settings?.currency?.code}\n• Auto-approve: ${household.settings?.autoApprove ? 'Yes' : 'No'}\n• Photo proof required: ${household.settings?.requirePhotoProof ? 'Yes' : 'No'}\n• Coin deduction: ${household.settings?.coinDeduction?.enabled ? 'Yes' : 'No'}\n\nKeep your household motivated! 🏠✨`
+                      );
+                    }}
+                  />
+                </>
               )}
             </>
           )}
@@ -2002,6 +2116,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     color: '#6C63FF',
+  },
+  premiumSection: {
+    marginTop: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  premiumSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 12,
   },
 }); 
 

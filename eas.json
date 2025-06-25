@@ -1,0 +1,46 @@
+{
+  "cli": {
+    "version": ">= 7.8.6"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "resourceClass": "m-medium"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "ios": {
+        "resourceClass": "m-medium"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "production": {
+      "env": {
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyDuLYaI2Im9-bwFXysVjeB40c9bf6HW6dY",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "chorecraft-f9889.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "chorecraft-f9889",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "chorecraft-f9889.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "843310217607",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:843310217607:web:0f49ee40b4ecd25fbdfb22",
+        "EXPO_PUBLIC_FIREBASE_MEASUREMENTID": "G-XJ6VZ767RF",
+        "EXPO_PUBLIC_APP_NAME": "ChoreCraft",
+        "EXPO_PUBLIC_APP_VERSION": "1.0.0",
+        "EXPO_PUBLIC_ENVIRONMENT": "production"
+      },
+      "ios": {
+        "resourceClass": "m-medium"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

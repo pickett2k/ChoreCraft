@@ -21,6 +21,8 @@ import {
   PopularReward, 
   firestoreUtils 
 } from '../services/firestoreService';
+import { premiumService } from '../services/premiumService';
+import PremiumUpgradeModal from './PremiumUpgradeModal';
 
 interface CreateRewardModalProps {
   visible: boolean;
@@ -49,6 +51,7 @@ export const CreateRewardModal: React.FC<CreateRewardModalProps> = ({
   const [step, setStep] = useState<'category' | 'details' | 'popular'>('popular');
   const [popularRewards, setPopularRewards] = useState<PopularReward[]>([]);
   const [household, setHousehold] = useState<any>(null);
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
 
   // Form state
   const [selectedCategory, setSelectedCategory] = useState<string>('');
@@ -59,6 +62,9 @@ export const CreateRewardModal: React.FC<CreateRewardModalProps> = ({
   const [maxRedemptions, setMaxRedemptions] = useState('');
   const [cooldownHours, setCooldownHours] = useState('');
   const [requiresApproval, setRequiresApproval] = useState(false);
+
+  // Check if user can create custom rewards
+  const canCreateCustomRewards = user?.firestoreData ? premiumService.canUserPerformAction(user.firestoreData, 'canCreateCustomRewards') : false;
 
   useEffect(() => {
     if (visible) {
@@ -200,47 +206,119 @@ export const CreateRewardModal: React.FC<CreateRewardModalProps> = ({
   const renderPopularRewards = () => (
     <View style={styles.stepContainer}>
       <View style={styles.stepHeader}>
-        <Text style={styles.stepTitle}>Popular Rewards</Text>
+        <Text style={styles.stepTitle}>
+          {canCreateCustomRewards ? 'Popular Rewards' : '🌟 Recommended Rewards'}
+        </Text>
         <Text style={styles.stepSubtitle}>
-          Choose from rewards that other families love, or create your own
+          {canCreateCustomRewards 
+            ? 'Choose from rewards that other families love, or create your own'
+            : 'Choose from our curated collection of popular household rewards. Upgrade to Premium to create custom rewards.'
+          }
         </Text>
       </View>
 
       <ScrollView style={styles.popularList} showsVerticalScrollIndicator={false}>
-        {popularRewards.map((reward, index) => (
-          <TouchableOpacity
-            key={index}
-            style={styles.popularRewardCard}
-            onPress={() => handlePopularRewardSelect(reward)}
-          >
-            <View style={styles.popularRewardHeader}>
-              <View style={[styles.popularRewardIcon, { backgroundColor: reward.color + '20' }]}>
-                <FontAwesome5 name={reward.icon || 'star'} size={16} color={reward.color} />
-              </View>
-              <View style={styles.popularRewardInfo}>
-                <Text style={styles.popularRewardTitle}>{reward.title}</Text>
-                <Text style={styles.popularRewardDescription}>{reward.description}</Text>
-              </View>
-              <View style={styles.popularRewardStats}>
-                <Text style={styles.popularRewardCost}>{reward.averageCoinCost} coins</Text>
-                <Text style={styles.popularRewardFrequency}>
-                  {reward.requestFrequency}% of families
+        {/* Show recommended rewards for free users */}
+        {!canCreateCustomRewards ? (
+          <>
+            {premiumService.getPreSelectedRewards().map((reward, index) => (
+              <TouchableOpacity
+                key={index}
+                style={styles.recommendedRewardCard}
+                onPress={() => {
+                  setTitle(reward.title!);
+                  setDescription(reward.description!);
+                  setSelectedCategory(reward.category!);
+                  setCoinCost(reward.coinCost!.toString());
+                  setRequiresApproval(reward.requiresApproval || false);
+                  setStep('details');
+                }}
+              >
+                <View style={styles.rewardCardHeader}>
+                  <Text style={styles.rewardCardTitle}>{reward.title}</Text>
+                  <View style={styles.coinBadge}>
+                    <Text style={styles.coinBadgeText}>{reward.coinCost}🪙</Text>
+                  </View>
+                </View>
+                
+                <Text style={styles.rewardCardDescription}>{reward.description}</Text>
+                
+                <View style={styles.rewardCardFooter}>
+                  <View style={styles.rewardCategory}>
+                    <FontAwesome5 
+                      name={rewardCategories.find(cat => cat.id === reward.category)?.icon || 'star'} 
+                      size={12} 
+                      color="#6B7280" 
+                    />
+                    <Text style={styles.rewardCategoryText}>
+                      {rewardCategories.find(cat => cat.id === reward.category)?.name}
+                    </Text>
+                  </View>
+                  
+                  {reward.requiresApproval && (
+                    <View style={styles.approvalBadge}>
+                      <Text style={styles.approvalBadgeText}>Requires Approval</Text>
+                    </View>
+                  )}
+                </View>
+              </TouchableOpacity>
+            ))}
+            
+            <View style={styles.upgradePrompt}>
+              <View style={styles.upgradePromptContent}>
+                <Text style={styles.upgradePromptTitle}>Want to create custom rewards?</Text>
+                <Text style={styles.upgradePromptText}>
+                  Upgrade to Premium for unlimited custom rewards, advanced features, and more!
                 </Text>
+                <TouchableOpacity 
+                  style={styles.upgradeButton}
+                  onPress={() => setShowPremiumModal(true)}
+                >
+                  <Text style={styles.upgradeButtonText}>Upgrade to Premium</Text>
+                </TouchableOpacity>
               </View>
             </View>
-          </TouchableOpacity>
-        ))}
+          </>
+        ) : (
+          /* Original popular rewards for premium users */
+          popularRewards.map((reward, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.popularRewardCard}
+              onPress={() => handlePopularRewardSelect(reward)}
+            >
+              <View style={styles.popularRewardHeader}>
+                <View style={[styles.popularRewardIcon, { backgroundColor: reward.color + '20' }]}>
+                  <FontAwesome5 name={reward.icon || 'star'} size={16} color={reward.color} />
+                </View>
+                <View style={styles.popularRewardInfo}>
+                  <Text style={styles.popularRewardTitle}>{reward.title}</Text>
+                  <Text style={styles.popularRewardDescription}>{reward.description}</Text>
+                </View>
+                <View style={styles.popularRewardStats}>
+                  <Text style={styles.popularRewardCost}>{reward.averageCoinCost} coins</Text>
+                  <Text style={styles.popularRewardFrequency}>
+                    {reward.requestFrequency}% of families
+                  </Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          ))
+        )}
       </ScrollView>
 
-      <View style={styles.stepActions}>
-        <TouchableOpacity
-          style={styles.secondaryButton}
-          onPress={() => setStep('category')}
-        >
-          <FontAwesome5 name="plus" size={16} color="#6C63FF" />
-          <Text style={styles.secondaryButtonText}>Create Custom Reward</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Show custom buttons only for premium users */}
+      {canCreateCustomRewards && (
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity 
+            style={styles.customButton} 
+            onPress={() => setStep('category')}
+          >
+            <FontAwesome5 name="plus" size={16} color="#6C63FF" />
+            <Text style={styles.customButtonText}>Create Custom Reward</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 
@@ -741,5 +819,114 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     backgroundColor: '#9CA3AF',
+  },
+  recommendedRewardCard: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  rewardCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  rewardCardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  coinBadge: {
+    backgroundColor: '#6C63FF',
+    borderRadius: 8,
+    padding: 4,
+  },
+  coinBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'white',
+  },
+  rewardCardDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 8,
+  },
+  rewardCardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  rewardCategory: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  rewardCategoryText: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginLeft: 4,
+  },
+  approvalBadge: {
+    backgroundColor: '#6C63FF',
+    borderRadius: 8,
+    padding: 4,
+  },
+  approvalBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'white',
+  },
+  upgradePrompt: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+  },
+  upgradePromptContent: {
+    alignItems: 'center',
+  },
+  upgradePromptTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  upgradePromptText: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 16,
+  },
+  upgradeButton: {
+    backgroundColor: '#6C63FF',
+    borderRadius: 8,
+    padding: 12,
+  },
+  upgradeButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  customButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#6C63FF',
+    borderRadius: 8,
+    padding: 12,
+  },
+  customButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6C63FF',
   },
 }); 

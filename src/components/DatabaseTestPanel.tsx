@@ -19,6 +19,8 @@ import {
   Chore 
 } from '../services/firestoreService';
 import { useAuth } from '../contexts/AuthContext';
+import { premiumTester } from '../utils/testPremiumSystem';
+import { premiumService } from '../services/premiumService';
 
 export const DatabaseTestPanel: React.FC = () => {
   const { user } = useAuth();
@@ -248,52 +250,53 @@ export const DatabaseTestPanel: React.FC = () => {
   };
 
   const testDailyChoreCreation = async () => {
-    if (!user?.householdId) {
-      Alert.alert('Error', 'No household found');
-      return;
-    }
-
+    setLoading(true);
+    addResult('🧪 Testing daily chore creation and due date logic...');
+    
     try {
-      setLoading(true);
-      clearResults();
-      addResult('🧪 Testing daily chore creation...');
+      if (!user?.householdId) {
+        addResult('❌ No household found for current user');
+        return;
+      }
       
-      // Create a test daily chore
-      const testChore = {
+      const today = new Date();
+      const choreData = {
+        title: `Test Daily Chore ${Date.now()}`,
+        description: 'A test chore to verify daily scheduling',
         householdId: user.householdId,
-        title: 'Test Daily Chore - ' + new Date().toLocaleTimeString(),
-        description: 'This is a test daily chore to debug the display issue',
         createdBy: user.id,
         coinReward: 10,
+        frequency: 'daily' as const,
         anyoneCanDo: true,
         requiresPhoto: false,
+        beforePhotoRequired: false,
         afterPhotoRequired: false,
-        frequency: 'daily' as const,
+        status: 'active' as const,
         isRecurring: true,
+        autoDeleteAfterDays: 30,
+        assignedTo: [],
       };
       
-      console.log('📝 Creating test daily chore:', testChore);
-      const choreId = await choreService.createChore(testChore);
-      addResult(`✅ Test chore created with ID: ${choreId}`);
+      addResult('📝 Creating daily chore...');
+      const choreId = await choreService.createChore(choreData);
+      addResult(`✅ Created chore with ID: ${choreId}`);
       
-      // Set initial due date
-      await choreSchedulingService.updateChoreNextDueDate(choreId);
-      addResult('✅ Due date set for test chore');
-      
-      // Fetch and display the created chore
+      // Get the created chore to check its due date
       const allChores = await choreService.getHouseholdChores(user.householdId, 'all');
-      addResult(`📋 All chores after creation: ${allChores.length}`);
-      
       const createdChore = allChores.find((c: Chore) => c.id === choreId);
       if (createdChore) {
-        addResult(`✅ Found created chore: ${createdChore.title}`);
+        addResult(`📅 Chore created successfully`);
+        addResult(`   - Title: ${createdChore.title}`);
         addResult(`   - Frequency: ${createdChore.frequency}`);
-        addResult(`   - Status: ${createdChore.status}`);
-        addResult(`   - Is Recurring: ${createdChore.isRecurring}`);
-        addResult(`   - Next Due Date: ${createdChore.nextDueDate ? 'Set' : 'Not set'}`);
         
-        // Test if it shows up in today's calendar
-        const today = new Date();
+        if (createdChore.nextDueDate) {
+          const dueDate = createdChore.nextDueDate.toDate ? createdChore.nextDueDate.toDate() : 
+            (createdChore.nextDueDate as any).seconds ? new Date((createdChore.nextDueDate as any).seconds * 1000) : 
+            new Date(createdChore.nextDueDate as any);
+          addResult(`   - Next Due: ${dueDate.toDateString()}`);
+        }
+        
+        // Test if it appears in today's chores
         const todayChores = await choreSchedulingService.getChoresDueOnDate(user.householdId, today);
         addResult(`📅 Chores due today: ${todayChores.length}`);
         
@@ -317,6 +320,71 @@ export const DatabaseTestPanel: React.FC = () => {
       
     } catch (error) {
       addResult(`❌ Test failed: ${error}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTestPremiumSystem = async () => {
+    setLoading(true);
+    addResult('🧪 Testing Premium System...');
+    
+    try {
+      // Clear previous results in the tester
+      premiumTester.clearResults();
+      
+      // Run all premium tests
+      const testResults = await premiumTester.runAllTests();
+      
+      // Add results to our display
+      addResult(`\n🎉 Premium Test Results:`);
+      addResult(`✅ Passed: ${testResults.passed}/${testResults.total}`);
+      addResult(`❌ Failed: ${testResults.failed}/${testResults.total}`);
+      
+      // Add detailed results
+      testResults.results.forEach(result => {
+        const status = result.passed ? '✅' : '❌';
+        addResult(`${status} ${result.testName}${result.details ? ` - ${result.details}` : ''}`);
+        if (result.error) {
+          addResult(`   Error: ${result.error}`);
+        }
+      });
+      
+      if (testResults.failed === 0) {
+        addResult('\n🎊 All premium system tests passed!');
+        addResult('Premium functionality is working correctly.');
+        
+        // Test current user's premium status
+        if (user?.firestoreData) {
+          const canCreateCustomChores = premiumService.canUserPerformAction(user.firestoreData, 'canCreateCustomChores');
+          const isPremium = user.firestoreData.isPremium;
+          
+          addResult(`\n👤 Current User Status:`);
+          addResult(`   - Is Premium: ${isPremium ? 'Yes' : 'No'}`);
+          addResult(`   - Can Create Custom Chores: ${canCreateCustomChores ? 'Yes' : 'No'}`);
+          
+          if (!isPremium) {
+            addResult('   💡 To test premium upgrade: Try creating a custom chore and click upgrade');
+          }
+        }
+        
+        Alert.alert(
+          'Premium System Test Complete! 🎉',
+          `All ${testResults.total} tests passed!\n\nThe premium system is working correctly. Check console for detailed results.`,
+          [{ text: 'Excellent!' }]
+        );
+      } else {
+        addResult('\n⚠️ Some premium tests failed.');
+        Alert.alert(
+          'Premium Test Issues',
+          `${testResults.failed}/${testResults.total} tests failed. Check console for details.`,
+          [{ text: 'OK' }]
+        );
+      }
+      
+    } catch (error: any) {
+      addResult(`❌ Premium test error: ${error.message}`);
+      Alert.alert('Error', `Premium test failed: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -408,6 +476,17 @@ export const DatabaseTestPanel: React.FC = () => {
         >
           <FontAwesome5 name="calendar" size={16} color="white" />
           <Text style={styles.buttonText}>Test Daily Chore Creation</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity
+          style={[styles.testButton, { backgroundColor: '#F59E0B' }]}
+          onPress={handleTestPremiumSystem}
+          disabled={loading}
+        >
+          <FontAwesome5 name="gift" size={16} color="white" />
+          <Text style={styles.buttonText}>Test Premium System</Text>
         </TouchableOpacity>
       </View>
 

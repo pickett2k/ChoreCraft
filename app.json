@@ -16,7 +16,12 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.swill85.chorecraft",
-      "buildNumber": "1.0.0"
+      "buildNumber": "1.0.0",
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app uses the camera to take photos for chore completion verification.",
+        "NSPhotoLibraryUsageDescription": "This app accesses your photo library to attach photos to chore completions.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -24,7 +29,14 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.swill85.chorecraft"
+      "package": "com.swill85.chorecraft",
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "BILLING"
+      ],
+      "versionCode": 1
     },
     "web": {
       "bundler": "metro",
@@ -34,7 +46,16 @@
     "plugins": [
       "expo-router",
       "expo-mail-composer",
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "react-native-iap",
+        {
+          "clearTransactionIOS": false,
+          "purchaseErrorCodeIOS": 0,
+          "deferredPurchaseListener": false,
+          "enablePendingPurchases": true
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
@@ -48,6 +69,22 @@
         "messagingSenderId": "843310217607",
         "appId": "1:843310217607:web:0f49ee40b4ecd25fbdfb22",
         "measurementId": "G-XJ6VZ767RF"
+      },
+      "iap": {
+        "products": {
+          "ios": [
+            "chorecraft_premium_yearly",
+            "chorecraft_premium_yearly"
+          ],
+          "android": [
+            "chorecraft_premium_yearly",
+            "chorecraft_premium_yearly"
+          ]
+        }
+      },
+      "router": {},
+      "eas": {
+        "projectId": "1bd1b458-ac3b-4508-811a-98005dd8d053"
       }
     }
   }
